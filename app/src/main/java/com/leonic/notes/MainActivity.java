@@ -1,13 +1,16 @@
 package com.leonic.notes;
 
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -46,6 +49,30 @@ public class MainActivity extends AppCompatActivity {
                 saveNote();
             }
         });
+        loadNotesFromPreferences();
+        displayNotes();
+    }
+
+    private void displayNotes() {
+        for (Note note : noteList) {
+            createNoteView(note);
+        }
+    }
+
+    private void loadNotesFromPreferences() {
+        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        int noteCount = sharedPreferences.getInt(KEY_NOTE_COUNT, 0);
+
+        for (int i = 0; i < noteCount; i++) {
+            String title = sharedPreferences.getString("note_title_" + i, "");
+            String content = sharedPreferences.getString("note_content_" + i, "");
+
+            Note note = new Note();
+            note.setTitle(title);
+            note.setContent(content);
+
+            noteList.add(note);
+        }
     }
 
     private void saveNote() {
@@ -63,12 +90,60 @@ public class MainActivity extends AppCompatActivity {
             noteList.add(note);
             saveNotesToPreferences();
 
-            createNoteView();
+            createNoteView(note);
+            clearInputFields();
         }
     }
 
-    private void createNoteView() {
-        View noteView = getLayoutInflater().inflate(R.layout.note_item.xml);
+    private void clearInputFields() {
+        EditText titleEditText = findViewById(R.id.titleEditText);
+        EditText contentEditText = findViewById(R.id.contentEditText);
+
+        titleEditText.getText().clear();
+        contentEditText.getText().clear();
+    }
+
+    private void createNoteView(Note note) {
+        View noteView = getLayoutInflater().inflate(R.layout.note_item, null);
+        TextView titleTextView = noteView.findViewById(R.id.titleTextView);
+        TextView contentTextView = noteView.findViewById(R.id.contentTextView);
+
+        titleTextView.setText(note.getTitle());
+        contentTextView.setText(note.getContent());
+
+        noteView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                showDeleteDialog(note);
+                return true;
+            }
+        });
+        notesContainer.addView(noteView);
+    }
+
+    private void showDeleteDialog(Note note) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Delete this note");
+        builder.setMessage("Are you sure?");
+        builder.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                deleteNoteAndRefresh(note);
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
+    }
+
+    private void deleteNoteAndRefresh(Note note) {
+        noteList.remove(note);
+        saveNotesToPreferences();
+        refreshNoteViews();
+    }
+
+    private void refreshNoteViews() {
+        notesContainer.removeAllViews();
+        displayNotes();
     }
 
     private void saveNotesToPreferences() {
@@ -76,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = sharedPreferences.edit();
 
         editor.putInt(KEY_NOTE_COUNT, noteList.size());
-        for (int i = 0; i < noteList.size(); i++) {
+        for (int i = 0; i < noteList.size(); i ++) {
             Note note = noteList.get(i);
             editor.putString("note_title_" + i, note.getTitle());
             editor.putString("note_content_" + i, note.getContent());
